@@ -21,22 +21,21 @@ class Caption {
  * @type {{captionData: Array, canvas: string, context: string, canvasW: number, canvasH: number, maxLine: number, playCaption: Array, captionLocation: number, fontSize: number, linHeight: number, minCapSpace: number, maxCapSpace: number, capSpeed: number, end: boolean, isReplay: boolean, isComment: boolean, newComment: string, launchId: number, listCount: number, limitNum: number, init: Function, initData: Function, playCap: Function, pauseCap: Function, createCap: Function, getCap: Function, launchCap: Function, getRandomColor: Function, getComment: Function}}
  */
 var comment = {
-    // captionData: ['我','是','弹','幕','你','可','以','自','己','输','入'],
-    captionData: ['我'],
+    captionData: ['看见蟑螂','我神经比较大','我不怕不怕啦','不怕不怕不怕啦','一个人睡也不怕不怕啦','勇气当棉被','夜晚再黑我就当看不见','太阳一定就快出现','HELLO','看我','你在害怕什么','是我错','没能够啊把自己变得成熟'],
     canvas: '',
     context: '',
     canvasW: 0,
     canvasH: 0,
     maxLine: 10,             // 弹幕行数 && 也可根据字体和行高计算
-    playCaption: new Map(),	// 正在播放的弹幕
+    playCaption: new Map(), // 正在播放的弹幕
     captionLocation: 0,     // 播放弹幕的索引
     fontSize: 18,           // 弹幕字号 
     linHeight: 30,          // 弹幕行高
     minCapSpace: 50,        // 弹幕最小间隙
     maxCapSpace: 150,       // 弹幕最大间隙
-    capMinSpeed: 1.5,		// 弹幕移动速度(最低速度)
-    capMaxSpeed: 3.5,       // 弹幕移动速度(最高速度)
-    lineSpeed: [],			// speed库
+    capMinSpeed: 3,       // 弹幕移动速度(最低速度)
+    capMaxSpeed: 5,       // 弹幕移动速度(最高速度)
+    lineSpeed: [],          // speed库
     end: false,             // 弹幕发送结束
     isReplay: true,         // 是否循环播放弹幕
     isComment: false,       // 弹幕是否存在
@@ -45,7 +44,7 @@ var comment = {
     listCount: 0,           // 数据列表的偏移量(用于刷新新数据时累加数据)
     limitNum: 50,           // 分页加载的数量
     init: function(){
-    	this.initSpeed();
+        this.initSpeed();
         if(!window.requestAnimationFrame){
             window.requestAnimationFrame =(window.webkitRequestAnimationFrame||window.mozRequestAnimationFrame||window.oRequestAnimationFrame||window.msRequestAnimationFrame||
             function(callback){return window.setTimeout(callback,1000/60);});
@@ -71,9 +70,10 @@ var comment = {
         }
     },
     initSpeed: function(){
-    	for(let i=0;i<this.maxLine;i++){
-    		comment.lineSpeed[i] = Math.random() * (comment.capMaxSpeed - comment.capMinSpeed);
-    	}
+        for(let i=0;i<this.maxLine;i++){
+            comment.lineSpeed[i] = Math.random() * (comment.capMaxSpeed - comment.capMinSpeed) + 1;
+        }
+        console.info(comment.lineSpeed);
     },
     // 播放弹幕
     playCap: function(){
@@ -98,7 +98,7 @@ var comment = {
             $cap.line = line;
             $cap.length = $cap.txt.length * this.fontSize;
             $cap.speed = this.capSpeed + line * 0.3;
-            this.playCaption.set(this.playCaption.size, $cap);
+            this.playCaption.set(comment.playCaption.size, $cap);
             this.newComment && (this.newComment = '');
             return true;
         }else{
@@ -144,9 +144,9 @@ var comment = {
                     }
                 }
                 me.context.fillStyle = $cap.color;
-                $cap.x -= $cap.speed;
+                $cap.x -= comment.lineSpeed[$cap.line-1];
                 me.context.fillText($cap.txt, $cap.x, $cap.y);
-                if (curX - 1 < 0) {
+                if (curX < 0) {
                     me.playCaption.delete(item);
                 }
             }
