@@ -3,16 +3,16 @@
  * @constructor
  */
 class Caption {
-  constructor(){
-      this.color = '';
-      this.x = 0;
-      this.y = 0;
-      this.txt = '';
-      this.line = 0;
-      this.length = 0;
-      this.activity = true;
-      this.space = 0;
-      this.speed = 0;
+	constructor(){
+		this.color = '';
+		this.x = 0;
+		this.y = 0;
+		this.txt = '';
+		this.line = 0;
+		this.length = 0;
+		this.activity = true;
+		this.space = 0;
+		this.speed = 0;
     }
 }
 
@@ -26,14 +26,16 @@ var comment = {
     context: '',
     canvasW: 0,
     canvasH: 0,
-    maxLine: 10,             // 弹幕行数 && 也可根据字体和行高计算
-    playCaption: new Map(), // 正在播放的弹幕
+    playCurrent: 0,
+    maxLine: 6,             // 弹幕行数 && 也可根据字体和行高计算
+    expireCapList: [],
+    playCaption: [],
     captionLocation: 0,     // 播放弹幕的索引
     fontSize: 18,           // 弹幕字号 
     linHeight: 30,          // 弹幕行高
     minCapSpace: 50,        // 弹幕最小间隙
     maxCapSpace: 150,       // 弹幕最大间隙
-    capMinSpeed: 3,       // 弹幕移动速度(最低速度)
+    capMinSpeed: 1,       // 弹幕移动速度(最低速度)
     capMaxSpeed: 5,       // 弹幕移动速度(最高速度)
     lineSpeed: [],          // speed库
     end: false,             // 弹幕发送结束
@@ -71,13 +73,12 @@ var comment = {
     },
     initSpeed: function(){
         for(let i=0;i<this.maxLine;i++){
-            comment.lineSpeed[i] = Math.random() * (comment.capMaxSpeed - comment.capMinSpeed) + 1;
+            comment.lineSpeed[i] = Math.random() * (comment.capMaxSpeed - comment.capMinSpeed) + comment.capMinSpeed;
         }
-        console.info(comment.lineSpeed);
     },
     // 播放弹幕
     playCap: function(){
-        !this.playCaption.size && this.initData();
+        !this.playCaption.length && this.initData();
         !this.launchId && this.launchCap();
     },
     // 停止播放弹幕
@@ -87,9 +88,20 @@ var comment = {
     },
     // 创建弹幕数据
     createCap: function(line){
-        var title = this.newComment ? this.newComment : this.getCap();
+    	var title = '',
+    		that = this;
+    	if(!this.captionData.length){
+    		return false;
+    	}
+    	if(this.newComment){
+    		title = this.newComment
+    	}else{
+    		title = this.captionData[0];
+    		this.captionData.splice(0, 1);
+    	}
+
         if(title) {
-            var $cap = new Caption();
+            let $cap = new Caption();
             $cap.space = Math.ceil(Math.random() * (this.maxCapSpace - this.minCapSpace) + this.minCapSpace);
             $cap.x = this.canvasW + Math.ceil(Math.random() * (this.maxCapSpace - this.minCapSpace));
             $cap.y = this.canvasH / this.maxLine * line - this.fontSize;
@@ -98,7 +110,7 @@ var comment = {
             $cap.line = line;
             $cap.length = $cap.txt.length * this.fontSize;
             $cap.speed = this.capSpeed + line * 0.3;
-            this.playCaption.set(comment.playCaption.size, $cap);
+            this.playCaption.push($cap);
             this.newComment && (this.newComment = '');
             return true;
         }else{
@@ -120,34 +132,47 @@ var comment = {
             this.isComment = false;
         }
     },
+    setCapList: function(){
+        if(this.captionData.length) {
+            this.isComment = true;
+            for(var index=0; index<this.maxLine; index++){
+                this.createCap(index);
+            }
+        }
+    },
     // 添加新弹幕数据
     addCaption: function(content){
         if(content) {
             this.newComment = content;
-            this.captionData.push(content);
             !this.isComment && this.playCap();
         }
     },
     // 运行弹幕
     launchCap: function () {
         var me = comment;
-        if(me.playCaption.size) {
+        if(me.playCaption.length) {
             me.launchId = window.requestAnimationFrame(me.launchCap);
             me.context.clearRect(0, 0, me.canvasW, me.canvasH);
             me.context.save();
-            for (let [index,item] of me.playCaption) {
-                let $cap = item,
-                    curX = $cap.x + $cap.length + $cap.space;
-                if (curX < me.canvasW && $cap.activity) {
-                    if(me.createCap($cap.line)){
-                        $cap.activity = false;
-                    }
-                }
-                me.context.fillStyle = $cap.color;
-                $cap.x -= comment.lineSpeed[$cap.line-1];
-                me.context.fillText($cap.txt, $cap.x, $cap.y);
-                if (curX < 0) {
-                    me.playCaption.delete(item);
+            for (var index in me.playCaption) {
+                let $cap = me.playCaption[index],
+                curX = $cap.x + $cap.length + $cap.space;
+                if(curX > 0){
+	            	if (curX < me.canvasW && $cap.activity) {
+	            		if(me.createCap($cap.line)){
+	            			$cap.activity = false;
+	            		}
+	                }
+	                me.context.fillStyle = $cap.color;
+	                $cap.x -= comment.lineSpeed[$cap.line-1];
+	                me.context.fillText($cap.txt, $cap.x, $cap.y);
+                }else{
+                	// me.playCaption.delete(index);
+                	if(!$cap.activity){
+                		$cap.activity = true;
+                		me.captionData.push($cap.txt)
+                		console.info(me.captionData)
+                	}
                 }
             }
             me.context.restore();
