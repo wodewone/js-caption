@@ -21,13 +21,15 @@ class Caption {
  * @type {{captionData: Array, canvas: string, context: string, canvasW: number, canvasH: number, maxLine: number, playCaption: Array, captionLocation: number, fontSize: number, linHeight: number, minCapSpace: number, maxCapSpace: number, capSpeed: number, end: boolean, isReplay: boolean, isComment: boolean, newComment: string, launchId: number, listCount: number, limitNum: number, init: Function, initData: Function, playCap: Function, pauseCap: Function, createCap: Function, getCap: Function, launchCap: Function, getRandomColor: Function, getComment: Function}}
  */
 var comment = {
-    captionData: ['看见蟑螂','我神经比较大','我不怕不怕啦','不怕不怕不怕啦','一个人睡也不怕不怕啦','勇气当棉被','夜晚再黑我就当看不见','太阳一定就快出现','HELLO','看我','你在害怕什么','是我错','没能够啊把自己变得成熟'],
+	captionData: ['看见蟑螂','我神经比较大','我不怕不怕啦','不怕不怕不怕啦','一个人睡也不怕不怕啦','勇气当棉被','夜晚再黑我就当看不见','太阳一定就快出现','HELLO','看我','你在害怕什么','是我错','没能够啊把自己变得成熟'],
+    // captionData: ['看见蟑螂','我神经比较大'],
     canvas: '',
     context: '',
     canvasW: 0,
     canvasH: 0,
     playCurrent: 0,
     maxLine: 6,             // 弹幕行数 && 也可根据字体和行高计算
+    lineActivity: [],
     expireCapList: [],
     playCaption: [],
     captionLocation: 0,     // 播放弹幕的索引
@@ -35,8 +37,8 @@ var comment = {
     linHeight: 30,          // 弹幕行高
     minCapSpace: 50,        // 弹幕最小间隙
     maxCapSpace: 150,       // 弹幕最大间隙
-    capMinSpeed: 1,       // 弹幕移动速度(最低速度)
-    capMaxSpeed: 5,       // 弹幕移动速度(最高速度)
+    capMinSpeed: 2,       // 弹幕移动速度(最低速度)
+    capMaxSpeed: 4,       // 弹幕移动速度(最高速度)
     lineSpeed: [],          // speed库
     end: false,             // 弹幕发送结束
     isReplay: true,         // 是否循环播放弹幕
@@ -67,12 +69,24 @@ var comment = {
     },
     // 初始化数据（第一列）
     initData: function(){
-        for (var index = this.maxLine; index > 0; index--) {
-            this.createCap(index);
+        for(var i=0;i<this.maxLine;i++){
+            this.lineActivity.push(this.canvasW + Math.floor(Math.random() * 100));
+        }
+    	var start = Math.floor(Math.random() * this.maxLine);
+        for (var index = start;;) {
+            this.createCap(index)
+        	if(index < this.maxLine-1){
+    			index++;
+    		}else{
+    			index = 0;
+    		}
+    		if(index == start){
+        		break
+        	}
         }
     },
     initSpeed: function(){
-        for(let i=0;i<this.maxLine;i++){
+        for(var i=0;i<this.maxLine;i++){
             comment.lineSpeed[i] = Math.random() * (comment.capMaxSpeed - comment.capMinSpeed) + comment.capMinSpeed;
         }
     },
@@ -90,54 +104,38 @@ var comment = {
     createCap: function(line){
     	var title = '',
     		that = this;
-    	if(!this.captionData.length){
-    		return false;
-    	}
     	if(this.newComment){
     		title = this.newComment
     	}else{
+            if(!this.captionData.length){
+                return false;
+            }
     		title = this.captionData[0];
     		this.captionData.splice(0, 1);
     	}
 
+
+        var randomLine = Math.floor(Math.random() * this.maxLine);
+        if(this.lineActivity[randomLine] <= this.canvasW + this.fontSize){
+            line = randomLine;
+        }
+
         if(title) {
-            let $cap = new Caption();
+            var $cap = new Caption();
             $cap.space = Math.ceil(Math.random() * (this.maxCapSpace - this.minCapSpace) + this.minCapSpace);
-            $cap.x = this.canvasW + Math.ceil(Math.random() * (this.maxCapSpace - this.minCapSpace));
-            $cap.y = this.canvasH / this.maxLine * line - this.fontSize;
+            $cap.x = this.lineActivity[line]
+            $cap.y = this.canvasH / this.maxLine * (line + 1) - this.fontSize;
             $cap.color = this.newComment ? '#ffffff' : this.getRandomColor();
             $cap.txt = title;
             $cap.line = line;
             $cap.length = $cap.txt.length * this.fontSize;
             $cap.speed = this.capSpeed + line * 0.3;
+            this.lineActivity[line] += ($cap.space + $cap.length)
             this.playCaption.push($cap);
             this.newComment && (this.newComment = '');
             return true;
         }else{
             return false;
-        }
-    },
-    // 获取弹幕内容
-    getCap: function(){
-        if(this.captionData.length) {
-            this.isComment = true;
-            var index = this.captionLocation++;
-            if (index < this.captionData.length) {
-                return this.captionData[index];
-            } else if (this.isReplay) {
-                index = this.captionLocation = 0;
-                return this.captionData[index];
-            }
-        }else{
-            this.isComment = false;
-        }
-    },
-    setCapList: function(){
-        if(this.captionData.length) {
-            this.isComment = true;
-            for(var index=0; index<this.maxLine; index++){
-                this.createCap(index);
-            }
         }
     },
     // 添加新弹幕数据
@@ -153,29 +151,33 @@ var comment = {
         if(me.playCaption.length) {
             me.launchId = window.requestAnimationFrame(me.launchCap);
             me.context.clearRect(0, 0, me.canvasW, me.canvasH);
-            me.context.save();
             for (var index in me.playCaption) {
-                let $cap = me.playCaption[index],
-                curX = $cap.x + $cap.length + $cap.space;
-                if(curX > 0){
-	            	if (curX < me.canvasW && $cap.activity) {
-	            		if(me.createCap($cap.line)){
-	            			$cap.activity = false;
-	            		}
-	                }
-	                me.context.fillStyle = $cap.color;
-	                $cap.x -= comment.lineSpeed[$cap.line-1];
-	                me.context.fillText($cap.txt, $cap.x, $cap.y);
-                }else{
-                	// me.playCaption.delete(index);
-                	if(!$cap.activity){
-                		$cap.activity = true;
-                		me.captionData.push($cap.txt)
-                		console.info(me.captionData)
-                	}
+                var $cap = me.playCaption[index],
+                curX = $cap.x + $cap.length;
+
+                me.context.fillStyle = $cap.color;
+                me.context.fillText($cap.txt, $cap.x, $cap.y);
+
+                $cap.x -= comment.lineSpeed[$cap.line];
+
+                if(me.lineActivity[$cap.line] < me.canvasW){
+                    me.createCap($cap.line)
+                }
+                if(curX < 0){
+                    if(me.isReplay && $cap.activity){
+                        me.captionData.push($cap.txt)
+                    }
+                    $cap.activity = false;
+                }
+                if(curX + $cap.space < 0){
+                    me.playCaption.splice(index, 1);
                 }
             }
-            me.context.restore();
+            for(var index in me.lineActivity){
+                if(me.lineActivity[index] > me.canvasW){
+                    me.lineActivity[index] -= comment.lineSpeed[index];
+                }
+            }
         }
     },
     // 弹幕颜色(随机颜色)
